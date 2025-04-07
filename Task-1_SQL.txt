@@ -1,0 +1,50 @@
+Query 1: Calculate number of users registered in Finland in the last 30 days
+
+SELECT COUNT(*) AS finland_users_last_30_days
+FROM Users
+WHERE User_country = 'Finland'
+  AND User_registration_timestamp_utc >= DATEADD(day, -30, CURRENT_TIMESTAMP);
+
+
+
+Query 2: Count the number of users who have made at least one purchase in the past 30 days, where their purchases include more than one unique product
+
+SELECT COUNT(DISTINCT s.User_id) AS users_with_multiple_products
+FROM Sales s
+JOIN Purchases p ON s.Purchase_id = p.Purchase_id
+WHERE s.Timestamp_utc >= DATEADD(day, -30, CURRENT_TIMESTAMP)
+GROUP BY s.User_id
+HAVING COUNT(DISTINCT p.Product_id) > 1;
+
+Query 3: Retrieve the most recent price for each purchased product
+Method-1
+SELECT 
+    p1.Product_id,
+    p1.Price AS most_recent_price
+FROM Purchases p1
+JOIN Sales s1 ON p1.Purchase_id = s1.Purchase_id
+JOIN (
+    SELECT 
+        p.Product_id,
+        MAX(s.Timestamp_utc) AS latest_timestamp
+    FROM Purchases p
+    JOIN Sales s ON p.Purchase_id = s.Purchase_id
+    GROUP BY p.Product_id
+) latest ON p1.Product_id = latest.Product_id AND s1.Timestamp_utc = latest.latest_timestamp;
+
+Method-2 
+
+WITH RankedPurchases AS (
+    SELECT 
+        Product_id,
+        Price,
+        ROW_NUMBER() OVER (PARTITION BY Product_id ORDER BY Timestamp_utc DESC) AS rn
+    FROM Purchases p
+    JOIN Sales s ON p.Purchase_id = s.Purchase_id
+)
+SELECT 
+    Product_id,
+    Price AS most_recent_price
+FROM RankedPurchases
+WHERE rn = 1;
+Method 2: Using a subquery wit
